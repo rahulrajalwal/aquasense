@@ -1,0 +1,10 @@
+{
+  "datasetVersion": 3,
+  "releasedAt": "2026-07-07",
+  "summary": "CGWB 2013 district report + NAQUIM Annexure-I wells (146) + GSDA/CGWB 2023 district assessment status",
+  "sources": [
+    { "id": "naquim-pune", "surveyYear": "2016-19 (levels 2017, exploration 2018)" },
+    { "id": "cgwb-2013", "surveyYear": "2013 (rainfall 2003-2012)" },
+    { "id": "gsda-2023", "surveyYear": "assessment as on March 2023" }
+  ]
+}

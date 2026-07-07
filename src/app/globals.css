@@ -3,25 +3,107 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #040d1c;
+  --foreground: #e2ecf7;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(1100px 500px at 85% -10%, rgba(34, 211, 238, 0.08), transparent 60%),
+    radial-gradient(900px 600px at -10% 20%, rgba(59, 130, 246, 0.1), transparent 55%),
+    var(--background);
+  min-height: 100vh;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #06132a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e3a5f;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2b4f7e;
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md;
   }
+  .glass-strong {
+    @apply rounded-2xl border border-white/10 bg-slate-900/70 backdrop-blur-xl;
+  }
+  .field {
+    @apply w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:hover:brightness-100;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-cyan-400/40 hover:bg-white/10 active:scale-[0.98];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider;
+  }
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(148, 184, 226, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 184, 226, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 35%, black 35%, transparent 75%);
+}
+
+/* skeleton shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+.skeleton {
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* leaflet dark-theme polish */
+.leaflet-container {
+  background: #0a1830;
+  font: inherit;
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #0d1f3c;
+  color: #dbe7f5;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+.leaflet-popup-content-wrapper {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+}
+.leaflet-control-zoom a {
+  background: #0d1f3c !important;
+  color: #cfe3ff !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+.leaflet-control-attribution {
+  background: rgba(4, 13, 28, 0.75) !important;
+  color: #7f95b3 !important;
+}
+.leaflet-control-attribution a {
+  color: #22d3ee !important;
 }
