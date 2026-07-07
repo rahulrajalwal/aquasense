@@ -4,6 +4,8 @@ A decision-support web platform that recommends **where to drill a borewell in P
 
 **Developed by [Rahul Meena](https://github.com/rahulrajalwal).**
 
+**🌐 Live app: [aquasense-self.vercel.app](https://aquasense-self.vercel.app)** — deployed on Vercel, auto-redeploys on every push to `main`.
+
 ## What it runs on (real data)
 
 | Source | What we use |
