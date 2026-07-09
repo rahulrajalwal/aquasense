@@ -10,7 +10,6 @@ const LINKS = [
   { href: '/map', label: 'Map' },
   { href: '/analyze', label: 'Analyze' },
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/ml-lab', label: 'ML Lab' },
   { href: '/data-sources', label: 'Data Sources' },
   { href: '/report', label: 'Report' },
   { href: '/about', label: 'About' },

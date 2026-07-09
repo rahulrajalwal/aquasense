@@ -105,6 +105,25 @@ const GENERIC_SEEDS: ResLayer[][] = [
     { resistivity: 80, thickness: 15 },
     { resistivity: 600, thickness: 0 },
   ],
+  // Deccan-trap H-type: dry cover over a saturated weathered aquifer over
+  // massive basalt (the most common hard-rock sounding shape).
+  [
+    { resistivity: 55, thickness: 4 },
+    { resistivity: 24, thickness: 16 },
+    { resistivity: 500, thickness: 0 },
+  ],
+  [
+    { resistivity: 45, thickness: 7 },
+    { resistivity: 20, thickness: 26 },
+    { resistivity: 450, thickness: 0 },
+  ],
+  // Deccan HA / two-aquifer: cover, weathered (Aq-I), fractured (Aq-II), fresh.
+  [
+    { resistivity: 60, thickness: 3 },
+    { resistivity: 26, thickness: 12 },
+    { resistivity: 85, thickness: 30 },
+    { resistivity: 700, thickness: 0 },
+  ],
 ]
 
 /**

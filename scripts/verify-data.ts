@@ -73,31 +73,31 @@ const cs = contributions(PRETRAINED_REAL, x0)
 const logit = PRETRAINED_REAL.bias + cs.reduce((s, c) => s + c.logit, 0)
 check('contribution decomposition exact', Math.abs(1 / (1 + Math.exp(-logit)) - p0) < 1e-9)
 
-// ── assessment engine, all talukas × {no-VES, VES} ─────────────────────
+// ── assessment engine, all talukas (auto official-VES interpretation) ──
 let minP = 101, maxP = -1
 let assessFailures = 0
 for (const t of TALUKAS_REAL) {
-  for (const ves of [null, { rho: 32, thickM: 8, topM: 6 }]) {
-    const a = assessSite({
-      talukaId: t.id, placeName: 'check', lat: null, lon: null,
-      knownWaterTableM: '', nearbyBoreDepthM: '', nearbyOutcome: 'unknown', ves,
-    })
-    const ok =
-      a.probability >= 5 && a.probability <= 95 &&
-      a.recommendedDepthM[0] >= a.waterStrikeM[1] + 10 - 1e-9 &&
-      a.recommendedDepthM[1] > a.recommendedDepthM[0] &&
-      a.recommendedDepthM[1] <= 200 &&
-      a.waterStrikeM[0] >= 2 && a.waterStrikeM[0] <= a.waterStrikeM[1] &&
-      a.factors.length === 6 && a.explanations.length === 5 &&
-      a.confidencePct >= 25 && a.confidencePct <= 90
-    if (!ok) {
-      assessFailures++
-      check(`assess ${t.id} ves=${!!ves}`, false, JSON.stringify({ p: a.probability, strike: a.waterStrikeM, rec: a.recommendedDepthM }))
-    }
-    minP = Math.min(minP, a.probability); maxP = Math.max(maxP, a.probability)
+  const a = assessSite({
+    talukaId: t.id, placeName: 'check', lat: null, lon: null,
+    knownWaterTableM: '', nearbyBoreDepthM: '', nearbyOutcome: 'unknown', ves: null,
+  })
+  const ok =
+    a.probability >= 5 && a.probability <= 95 &&
+    a.interpretation.source === 'official' && a.paramSource === 'ves-official' &&
+    a.interpretation.layers.length >= 3 &&
+    a.recommendedDepthM[1] > a.recommendedDepthM[0] &&
+    a.recommendedDepthM[1] <= 200 &&
+    a.waterStrikeM[0] >= 2 && a.waterStrikeM[0] <= a.waterStrikeM[1] &&
+    a.factors.length === 6 && a.explanations.length === 5 &&
+    !!a.fieldValidation && a.fieldValidation.recommendedDepthM[1] > a.fieldValidation.recommendedDepthM[0] &&
+    a.confidencePct >= 25 && a.confidencePct <= 90
+  if (!ok) {
+    assessFailures++
+    check(`assess ${t.id}`, false, JSON.stringify({ p: a.probability, strike: a.waterStrikeM, rec: a.recommendedDepthM, src: a.interpretation.source }))
   }
+  minP = Math.min(minP, a.probability); maxP = Math.max(maxP, a.probability)
 }
-check('all 28 taluka assessments structurally valid', assessFailures === 0)
+check('all 14 taluka assessments structurally valid (VES-derived)', assessFailures === 0)
 console.log(`  probability spread across talukas: ${minP}%–${maxP}%`)
 
 // with coordinates (Lavale) — nearest-well path
@@ -111,7 +111,7 @@ const nearest = nearestWells(18.5431, 73.715, 3)
 check('nearestWells sorted', nearest[0].km <= nearest[1].km && nearest[1].km <= nearest[2].km)
 
 // degenerate inputs shouldn't crash
-assessSite({ talukaId: 'velhe', placeName: '', lat: 19.4, lon: 75.1, knownWaterTableM: 130, nearbyBoreDepthM: 200, nearbyOutcome: 'many-failed', ves: { rho: 900, thickM: 0.3, topM: 60 } })
+assessSite({ talukaId: 'velhe', placeName: '', lat: 19.4, lon: 75.1, knownWaterTableM: 130, nearbyBoreDepthM: 200, nearbyOutcome: 'many-failed', ves: null })
 check('extreme-input assessment did not crash', true)
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} FAILURES`)

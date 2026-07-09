@@ -8,7 +8,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { SiteInput } from '@/lib/engine/assessReal'
 import { talukaByIdReal } from '@/lib/data/real/talukas'
 
-const KEY = 'aquasense.site.v3'
+const KEY = 'aquasense.site.v4'
 
 export const DEFAULT_SITE: SiteInput = {
   talukaId: 'haveli',

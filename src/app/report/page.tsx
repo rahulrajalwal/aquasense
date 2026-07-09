@@ -9,16 +9,18 @@ import { assessSite } from '@/lib/engine/assessReal'
 import { generateReport } from '@/lib/report'
 
 const SECTIONS = [
-  ['1 · Site & inputs', 'Location, coordinates, and every parameter you provided (or the CGWB fallback used)'],
-  ['2 · Data sources', 'Full citations: CGWB 2013 district report + NAQUIM aquifer-mapping study'],
-  ['3 · Local CGWB evidence', 'Nearest documented wells with depths, water levels, yields and outcomes'],
-  ['4 · Aquifer setting', 'The NAQUIM two-aquifer system with local medians from CGWB logs'],
-  ['5 · Assessment result', 'Probability bar (ML + rules), verdict, strike & drilling depths, yield, confidence'],
-  ['6 · Factor breakdown', 'All rule-engine factors with weights, scores and evidence notes'],
-  ['7 · ML model', 'Model provenance, validation metrics, and signed feature contributions'],
-  ['8 · Interpretation', 'The full explanation panel in report form'],
-  ['9 · Actions', 'VES, permissions, recharge — what to do before drilling'],
-  ['10 · Disclaimer', 'Decision-support scope and data vintage'],
+  ['1 · Study area & inputs', 'Location, coordinates and every parameter you provided'],
+  ['2 · VES survey & interpretation', 'Interpreted resistivity layers (topsoil → weathered → fractured → fresh basalt) and the aquifer parameters auto-extracted from them'],
+  ['3 · Data sources', 'Full citations: CGWB 2013 report, NAQUIM study, GSDA 2023 assessment'],
+  ['4 · Local CGWB evidence', 'Nearest documented wells with depths, water levels, yields and outcomes'],
+  ['5 · Aquifer setting', 'The NAQUIM two-aquifer system with the VES-derived depths for this site'],
+  ['6 · ML prediction', 'Probability bar (ML + rules), verdict, strike & drilling depths, yield, confidence'],
+  ['7 · Factor breakdown', 'All rule-engine factors with weights, scores and evidence notes'],
+  ['8 · ML model', 'Model provenance, validation metrics, and signed feature contributions'],
+  ['9 · Interpretation', 'The full explanation panel in report form'],
+  ['10 · Actions', 'VES, permissions, recharge — what to do before drilling'],
+  ['11 · Field validation', 'The engineering-decision summary tying the recommendation back to the VES'],
+  ['12 · Disclaimer', 'Decision-support scope and data vintage'],
 ]
 
 export default function ReportPage() {

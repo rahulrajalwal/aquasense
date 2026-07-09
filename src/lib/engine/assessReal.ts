@@ -12,6 +12,7 @@ import { AQUIFERS, DATA_VINTAGE_NOTE, LATEST_ASSESSMENT } from '../data/real/hyd
 import { featurizeReal, DISTRICT_MEDIANS, type RealSiteParams } from '../ml/realFeatures'
 import { predictProba, contributions, type Contribution } from '../ml/logreg'
 import { PRETRAINED_REAL } from '../ml/pretrainedReal'
+import { officialInterpretation, type VesInterpretation } from '../physics/interpret'
 
 export interface FactorScore {
   key: string
@@ -24,12 +25,6 @@ export interface FactorScore {
 
 export type NearbyOutcome = 'most-working' | 'mixed' | 'many-failed' | 'unknown'
 
-export interface VesRefinement {
-  rho: number // interpreted aquifer resistivity, ohm-m
-  thickM: number
-  topM: number
-}
-
 export interface SiteInput {
   talukaId: string
   placeName: string
@@ -38,7 +33,23 @@ export interface SiteInput {
   knownWaterTableM: number | '' // depth to water in nearby wells, if the user knows it
   nearbyBoreDepthM: number | '' // typical bore depth nearby, if known
   nearbyOutcome: NearbyOutcome
-  ves: VesRefinement | null
+  /** Full VES interpretation — official CGWB layers or an inverted field survey.
+   *  Null means "not surveyed yet"; the engine then builds the official
+   *  interpretation from the CGWB record so aquifer parameters always
+   *  originate from a resistivity interpretation. */
+  ves: VesInterpretation | null
+}
+
+/** Final one-line engineering summary that closes the VES → ML workflow. */
+export interface FieldValidation {
+  recommendedDepthM: [number, number]
+  expectedAquifer: string
+  expectedYield: string
+  verification: string
+  confidencePct: number
+  recommendedNextStep: string
+  finalStatus: string
+  favourable: boolean
 }
 
 export interface LocalEvidence {
@@ -56,6 +67,10 @@ export interface RealAssessment {
   input: SiteInput
   taluka: TalukaInfo
   evidence: LocalEvidence
+  /** The VES interpretation the aquifer parameters were derived from. */
+  interpretation: VesInterpretation
+  /** Where the aquifer parameters came from. */
+  paramSource: 'ves-survey' | 'ves-official'
   mlProbability: number // 0-100
   ruleProbability: number // 0-100
   probability: number // blended headline, 5-95
@@ -71,7 +86,10 @@ export interface RealAssessment {
   factors: FactorScore[]
   mlContributions: Contribution[]
   explanations: { q: string; a: string }[]
+  /** Step-by-step engineering reasoning for the recommended drilling depth. */
+  depthRationale: string[]
   nextSteps: string[]
+  fieldValidation: FieldValidation
   askVes: boolean
   askVesReason: string
 }
@@ -130,16 +148,36 @@ export function assessSite(input: SiteInput): RealAssessment {
   const { taluka, evidence } = gatherEvidence(input)
   const ev = evidence
 
-  const preSwl = input.knownWaterTableM !== '' ? Number(input.knownWaterTableM) : ev.medPreSwlM
+  // ── VES interpretation is the foundation ──────────────────────────
+  // If the user has not run a survey, build the official interpretation
+  // from the CGWB record, so the aquifer parameters ALWAYS originate from
+  // a resistivity interpretation rather than being entered directly.
+  const interpretation: VesInterpretation =
+    input.ves ??
+    officialInterpretation({
+      aq1BottomM: ev.medAq1M,
+      aq2BottomM: ev.medAq2M,
+      aq2ThickM: ev.medAq2ThickM,
+      preSwlM: ev.medPreSwlM,
+    })
+  const paramSource: RealAssessment['paramSource'] =
+    interpretation.source === 'inverted' ? 'ves-survey' : 'ves-official'
 
-  // ML prediction from the pretrained real-data model
+  // aquifer parameters — from the VES interpretation, not typed in
+  const aq1BottomM = interpretation.derived.aq1BottomM
+  const aq2BottomM = interpretation.derived.aq2BottomM
+  const aq2ThickM = interpretation.derived.aq2ThickM
+  const preSwl =
+    input.knownWaterTableM !== '' ? Number(input.knownWaterTableM) : interpretation.derived.waterTableM
+
+  // ML prediction from the pretrained real-data model — fed the VES-derived aquifer parameters
   const params: RealSiteParams = {
     taluka,
     preSwlM: preSwl,
     postSwlM: null,
-    aq1BottomM: ev.medAq1M,
-    aq2BottomM: ev.medAq2M,
-    aq2ThickM: ev.medAq2ThickM,
+    aq1BottomM,
+    aq2BottomM,
+    aq2ThickM,
   }
   const x = featurizeReal(params)
   const mlProbability = Math.round(predictProba(PRETRAINED_REAL, x) * 100)
@@ -172,16 +210,18 @@ export function assessSite(input: SiteInput): RealAssessment {
       : 'No pump-tested CGWB wells in this taluka — district-level prior used.',
   )
 
-  // 2. aquifer geometry (25)
-  const thickScore = ev.medAq2ThickM >= 6 ? 88 : ev.medAq2ThickM >= 3 ? 70 : ev.medAq2ThickM >= 1.5 ? 52 : 30
+  // 2. aquifer geometry (25) — from the VES interpretation
+  const thickScore = aq2ThickM >= 6 ? 88 : aq2ThickM >= 3 ? 70 : aq2ThickM >= 1.5 ? 52 : 30
   addFactor(
     'aquifer',
-    'Aquifer geometry (CGWB logs)',
+    'Aquifer geometry (from VES)',
     25,
     thickScore,
-    `Local CGWB logs show Aquifer-I to ~${ev.medAq1M} m and Aquifer-II fracture zones near ${ev.medAq2M} m with median thickness ${ev.medAq2ThickM} m — ${
-      ev.medAq2ThickM >= 3 ? 'workable storage at depth.' : 'thin deeper zones; success depends on hitting discrete fractures.'
-    }`,
+    `The ${interpretation.source === 'official' ? 'official CGWB interpreted layers' : 'inverted VES sounding'} place ` +
+      `Aquifer-I (weathered basalt) to ~${aq1BottomM} m and the Aquifer-II fracture zone near ${aq2BottomM} m with a ` +
+      `~${aq2ThickM} m productive thickness — ${
+        aq2ThickM >= 3 ? 'workable storage at depth.' : 'thin deeper zone; success depends on hitting discrete fractures.'
+      }`,
   )
 
   // 3. water table (15)
@@ -224,48 +264,41 @@ export function assessSite(input: SiteInput): RealAssessment {
     } District-wide, the ${LATEST_ASSESSMENT.year} GSDA/CGWB assessment reports the ${LATEST_ASSESSMENT.puneDevelopmentBand} band with ${LATEST_ASSESSMENT.puneStressedTalukas} stressed talukas — assume conditions are tighter than the 2013 figures.`,
   )
 
-  // 6. VES refinement (10)
-  if (input.ves) {
-    const { rho, thickM } = input.ves
-    const inWindow = rho >= 20 && rho <= 45
-    const nearWindow = rho >= 12 && rho <= 80
-    const vesScore = (inWindow ? 80 : nearWindow ? 58 : 30) + clamp((thickM - 4) * 3, -10, 12)
-    addFactor(
-      'ves',
-      'Your VES sounding',
-      10,
-      vesScore,
-      `Interpreted aquifer layer: ~${rho.toFixed(0)} Ω·m, ${thickM.toFixed(1)} m thick from ${input.ves.topM.toFixed(1)} m. ${
-        inWindow
-          ? 'Squarely in the saturated weathered-basalt window (20–45 Ω·m) — direct geophysical support.'
-          : nearWindow
-            ? 'Near the saturated-basalt window; partially saturated or fracture-controlled.'
-            : 'Outside the saturated-basalt window — weak geophysical support at this exact spot.'
-      }`,
-    )
-  } else {
-    addFactor(
-      'ves',
-      'VES sounding (not provided)',
-      10,
-      50,
-      'No resistivity sounding yet — this factor is neutral. Adding a Schlumberger VES at the plot is the single biggest upgrade to this assessment.',
-    )
-  }
+  // 6. VES resistivity signature (10) — from the interpreted aquifer layer
+  const rho = interpretation.derived.primaryAquiferRho ?? 60
+  const saturatedWindow = rho >= 20 && rho <= 150 // saturated weathered or fractured basalt
+  const strong = rho >= 25 && rho <= 110
+  const vesScore = (strong ? 82 : saturatedWindow ? 62 : 35) + clamp((aq2ThickM - 3) * 3, -10, 12)
+  addFactor(
+    'ves',
+    interpretation.source === 'inverted' ? 'VES resistivity (your survey)' : 'VES resistivity (official layers)',
+    10,
+    vesScore,
+    `Interpreted aquifer resistivity ≈ ${rho.toFixed(0)} Ω·m. ${
+      strong
+        ? 'This sits in the saturated basalt-aquifer window (weathered ~20–45 Ω·m / fractured ~40–110 Ω·m) — direct geophysical support for water.'
+        : saturatedWindow
+          ? 'Near the saturated-basalt window; partially saturated or fracture-controlled.'
+          : 'Outside the typical saturated-basalt window — weak geophysical support at this exact spot.'
+    }${interpretation.source === 'official' ? ' A field VES at the plot would confirm this.' : ''}`,
+  )
 
   const ruleProbability = Math.round(clamp(factors.reduce((a, f) => a + f.contribution, 0), 5, 95))
   const probability = Math.round(clamp(0.55 * mlProbability + 0.45 * ruleProbability, 5, 95))
 
-  // ── drilling guidance from local CGWB logs ────────────────────────
+  // ── drilling guidance: VES-derived aquifer depth, cross-checked with
+  //    the depths at which successful local wells struck water ─────────
   const successfulLocal = ev.talukaTested.filter((w) => wellOutcome(w) === 1)
   const succDepths = successfulLocal.map((w) => w.aq2BottomM).filter((v): v is number => v !== null)
-  const medSuccDepth = median(succDepths) ?? ev.medAq2M
+  const medSuccDepth = median(succDepths) ?? aq2BottomM
   const waterStrikeM: [number, number] = [
-    Math.max(2, Math.round(Math.min(preSwl * 0.8, ev.medAq1M * 0.6))),
-    Math.round(ev.medAq1M),
+    Math.max(2, Math.round(Math.min(preSwl * 0.8, aq1BottomM * 0.6))),
+    Math.round(aq1BottomM),
   ]
-  const recLo = r5(clamp(Math.min(medSuccDepth, ev.medAq2M), waterStrikeM[1] + 10, 190))
-  const recHi = r5(clamp(Math.max(recLo + 20, medSuccDepth + 2 * ev.medAq2ThickM + 10), recLo + 15, 200))
+  // anchor the target on the VES-interpreted Aquifer-II, tempered by local wells
+  const targetAq2 = Math.round((aq2BottomM + medSuccDepth) / 2)
+  const recLo = r5(clamp(Math.min(targetAq2, aq2BottomM), waterStrikeM[1] + 10, 190))
+  const recHi = r5(clamp(Math.max(recLo + 20, targetAq2 + 2 * aq2ThickM + 10), recLo + 15, 200))
   const recommendedDepthM: [number, number] = [recLo, recHi]
 
   // yield expectation from local successful wells
@@ -281,7 +314,7 @@ export function assessSite(input: SiteInput): RealAssessment {
   if (ev.coverage === 'good') conf += 15
   else if (ev.coverage === 'moderate') conf += 8
   if (ev.talukaTested.length >= 6) conf += 5
-  if (input.ves) conf += 9
+  if (interpretation.source === 'inverted') conf += 11 // a real field sounding at the plot
   if (Math.abs(mlProbability - ruleProbability) <= 15) conf += 6
   else conf -= 4
   if (input.knownWaterTableM !== '') conf += 3
@@ -302,14 +335,12 @@ export function assessSite(input: SiteInput): RealAssessment {
     verdictText = `Unfavourable. The local CGWB record and model both point to high failure risk — consider managed recharge first, or investigate an alternative site.`
   }
 
-  // ── ask for VES? ──────────────────────────────────────────────────
-  const askVes = !input.ves
+  // ── recommend a field sounding when only official layers were used ─
+  const askVes = interpretation.source === 'official'
   const askVesReason =
-    probability >= 45 && probability < 75
-      ? 'Your result sits in the uncertain band where a resistivity sounding changes decisions most.'
-      : ev.coverage !== 'good'
-        ? 'CGWB well coverage near this exact spot is limited — site-specific geophysics fills the gap.'
-        : 'A sounding pins the aquifer depth at your exact plot and typically shifts the depth advice by several metres.'
+    'This assessment uses the official CGWB interpreted layers for the area. A field Vertical Electrical Sounding at ' +
+    'the exact plot would confirm the aquifer depth and resistivity here and raise the confidence — upload your ' +
+    'readings in the survey step to invert them live.'
 
   // ── explanations ──────────────────────────────────────────────────
   const nearTxt = ev.nearby.slice(0, 3).map((n) => {
@@ -343,8 +374,8 @@ export function assessSite(input: SiteInput): RealAssessment {
     },
     {
       q: `Why drill to ${recommendedDepthM[0]}–${recommendedDepthM[1]} m?`,
-      a: `CGWB logs around here put the weathered shallow aquifer (Aquifer-I) down to ~${ev.medAq1M} m and the productive fracture zones (Aquifer-II) near ${ev.medAq2M} m${
-        succDepths.length ? `; successful local wells hit their zones around ${medSuccDepth} m` : ''
+      a: `The VES interpretation puts the weathered shallow aquifer (Aquifer-I) down to ~${aq1BottomM} m and the productive Aquifer-II fracture zone near ~${aq2BottomM} m${
+        succDepths.length ? `; successful CGWB wells nearby hit their zones around ${medSuccDepth} m` : ''
       }. Water typically strikes at ${waterStrikeM[0]}–${waterStrikeM[1]} m, but the bore should continue through the Aquifer-II zone so it survives summer drawdown. District-wide, Aquifer-II runs ${AQUIFERS.aq2.depthRangeM[0]}–${AQUIFERS.aq2.depthRangeM[1]} m (NAQUIM).`,
     },
     {
@@ -364,7 +395,7 @@ export function assessSite(input: SiteInput): RealAssessment {
   ]
 
   const nextSteps = [
-    `Commission a Schlumberger VES at the plot (AB/2 up to ~${Math.ceil(recommendedDepthM[1] / 0.6 / 10) * 10} m); look for the 20–45 Ω·m saturated-basalt signature${input.ves ? ' — done ✓ (entered above)' : ''}.`,
+    `Commission a Schlumberger VES at the plot (AB/2 up to ~${Math.ceil(recommendedDepthM[1] / 0.6 / 10) * 10} m); look for the 20–45 Ω·m saturated-basalt signature${interpretation.source === 'inverted' ? ' — done ✓ (your survey was inverted above)' : ''}.`,
     verdict === 'favourable'
       ? 'Confirm the depth window with the sounding, then finalise the drilling contract with casing through the weathered zone.'
       : 'Sound 2–3 candidate spots (valley lines, topographic lows) and rank them before choosing.',
@@ -374,18 +405,57 @@ export function assessSite(input: SiteInput): RealAssessment {
       : 'Register the bore and budget a recharge pit / rooftop recharge — it pays back in dry years.',
   ]
 
+  // ── engineering reasoning for the recommended depth ───────────────
+  const depthRationale = [
+    `Water is first encountered in the weathered zone at about ${waterStrikeM[0]}–${waterStrikeM[1]} m (Aquifer-I).`,
+    `This shallow weathered aquifer is thin and its water level falls through the summer — it cannot be relied on by itself.`,
+    `The main productive fracture zone (Aquifer-II) is interpreted near ~${aq2BottomM} m${
+      succDepths.length ? `, consistent with successful CGWB wells nearby that struck water around ~${medSuccDepth} m` : ''
+    }.`,
+    `Drilling should therefore continue past the shallow zone to intercept and fully penetrate Aquifer-II so the bore survives summer drawdown.`,
+    `Recommended final drilling depth: ${recommendedDepthM[0]}–${recommendedDepthM[1]} m.`,
+  ]
+
+  // ── field-validation summary (closes the VES → ML → decision loop) ─
+  const expectedAquifer = aq2ThickM >= 2 ? 'Fractured basalt (Aquifer-II)' : 'Weathered basalt (Aquifer-I)'
+  const fieldValidation: FieldValidation = {
+    recommendedDepthM,
+    expectedAquifer,
+    expectedYield: `${yieldCategory} (~${yieldLph[0].toLocaleString()}–${yieldLph[1].toLocaleString()} L/hr)`,
+    verification:
+      interpretation.source === 'inverted'
+        ? 'Electrical Resistivity Survey (VES) — field sounding inverted'
+        : 'VES interpretation from official CGWB layers (field VES recommended)',
+    confidencePct: conf,
+    recommendedNextStep:
+      verdict === 'favourable'
+        ? 'Conduct a confirmatory VES at the exact plot, then drill with casing through the weathered zone.'
+        : verdict === 'moderate'
+          ? 'Run a detailed field VES at 2–3 candidate spots and compare before choosing where to drill.'
+          : 'Do not drill yet — commission a detailed geophysical survey (VES/ERT) and consider alternative sites.',
+    favourable: verdict === 'favourable',
+    finalStatus:
+      verdict === 'favourable'
+        ? 'Suitable for Borewell Construction'
+        : verdict === 'moderate'
+          ? 'Conditionally suitable — confirm with a field VES'
+          : 'Not recommended without further investigation',
+  }
+
   return {
     input, taluka, evidence: ev,
+    interpretation, paramSource,
     mlProbability, ruleProbability, probability,
     verdict, verdictText,
     waterStrikeM, recommendedDepthM,
     aquiferType:
-      ev.medAq2ThickM >= 3
+      aq2ThickM >= 3
         ? 'Weathered basalt (Aquifer-I) over jointed/fractured basalt (Aquifer-II)'
         : 'Weathered basalt (Aquifer-I); thin discrete fractures at depth (Aquifer-II)',
     yieldCategory, yieldLph,
     confidencePct: conf, confidence,
-    factors, mlContributions, explanations, nextSteps,
+    factors, mlContributions, explanations, depthRationale, nextSteps,
+    fieldValidation,
     askVes, askVesReason,
   }
 }

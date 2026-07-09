@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { PageHeader, Badge } from '@/components/ui'
 import { CGWB_WELLS, locatedWells, wellOutcome } from '@/lib/data/real/wells'
-import { TALUKAS_REAL, TALUKA_NAME_TO_ID } from '@/lib/data/real/talukas'
+import { TALUKAS_REAL, TALUKA_NAME_TO_ID, talukaByIdReal } from '@/lib/data/real/talukas'
 
 const MapView = dynamic(() => import('@/components/MapView'), {
   ssr: false,
@@ -23,6 +23,7 @@ export default function MapPage() {
       w.taluka.toLowerCase().includes(query.trim().toLowerCase()),
   )
   const selected = CGWB_WELLS.find((w) => w.sno === selectedSno) ?? null
+  const selTaluka = selected ? talukaByIdReal(TALUKA_NAME_TO_ID[selected.taluka] ?? '') : null
   const unlocated = CGWB_WELLS.length - wells.length
 
   return (
@@ -102,18 +103,22 @@ export default function MapPage() {
                   <Badge tone="cyan">CGWB {selected.type}</Badge>
                 </div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-400">
-                  <dt>Taluka</dt>
-                  <dd className="text-slate-300">{selected.taluka}</dd>
-                  <dt>Drilled depth</dt>
-                  <dd className="font-mono text-slate-300">{selected.depthM ?? '—'} m</dd>
-                  <dt>Water level (pre)</dt>
-                  <dd className="font-mono text-slate-300">{selected.preSwlM ?? '—'} m bgl</dd>
-                  <dt>Yield</dt>
-                  <dd className="font-mono text-slate-300">{selected.yieldRaw}</dd>
-                  <dt>Aquifer-I / II</dt>
+                  <dt>Village</dt>
+                  <dd className="text-slate-300">{selected.village}, {selected.taluka}</dd>
+                  <dt>Coordinates</dt>
                   <dd className="font-mono text-slate-300">
-                    {selected.aq1BottomM ?? '—'} / {selected.aq2BottomM ?? '—'} m
+                    {selected.lat !== null ? `${selected.lat.toFixed(4)}°N, ${selected.lon!.toFixed(4)}°E` : '—'}
                   </dd>
+                  <dt>Nearby CGWB wells</dt>
+                  <dd className="text-slate-300">{selTaluka ? `${wells.filter((w) => TALUKA_NAME_TO_ID[w.taluka] === selTaluka.id).length} in taluka` : '—'}</dd>
+                  <dt>Groundwater level</dt>
+                  <dd className="font-mono text-slate-300">{selected.preSwlM ?? '—'} m bgl (pre-monsoon)</dd>
+                  <dt>Annual rainfall</dt>
+                  <dd className="font-mono text-slate-300">{selTaluka ? `${selTaluka.rainfallMm} mm/yr` : '—'}</dd>
+                  <dt>Drilled / yield</dt>
+                  <dd className="font-mono text-slate-300">{selected.depthM ?? '—'} m · {selected.yieldRaw}</dd>
+                  <dt>Official VES survey</dt>
+                  <dd className="text-emerald-300">Available (CGWB layers)</dd>
                 </dl>
                 <Link
                   href={`/analyze?taluka=${TALUKA_NAME_TO_ID[selected.taluka] ?? ''}&place=${encodeURIComponent(selected.village)}${
@@ -121,7 +126,7 @@ export default function MapPage() {
                   }`}
                   className="btn-primary mt-3 w-full !py-2 text-xs"
                 >
-                  Analyze near this well
+                  Run VES Analysis →
                 </Link>
               </div>
             )}

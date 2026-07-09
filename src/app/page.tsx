@@ -50,13 +50,8 @@ const GEO_HELPS = [
   },
 ]
 
-const WORKFLOW = [
-  { step: '01', title: 'Tell us where', body: 'Pick your taluka and village — or click your exact plot on the map.' },
-  { step: '02', title: 'Share what you know', body: 'Water level in nearby wells, typical bore depths, how neighbours’ bores are doing. All optional.' },
-  { step: '03', title: 'Match CGWB record', body: 'The platform finds the documented CGWB wells around you and shows their real depths, levels and yields.' },
-  { step: '04', title: 'Refine with VES', body: 'If the answer is uncertain, it asks for a resistivity sounding and inverts it with real physics.' },
-  { step: '05', title: 'Decide with a report', body: 'Probability, drilling depth, expected yield and confidence — explained, cited, and exportable as PDF.' },
-]
+// the one-line message: geophysics first, AI last
+const PIPELINE = ['Electrical Resistivity Survey (VES)', 'Subsurface Interpretation', 'Aquifer Detection', 'Machine Learning', 'Borewell Recommendation']
 
 export default function Home() {
   return (
@@ -77,13 +72,25 @@ export default function Home() {
               </span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-              AquaSense AI is a decision-support platform that recommends <b className="text-white">where to drill a
-              borewell, how deep, and with what chance of success</b> — by combining electrical resistivity
-              interpretation, hydrogeology, rainfall, terrain and well-census evidence for Pune district.
+              AquaSense AI recommends <b className="text-white">where to drill a borewell, how deep, and with what
+              chance of success</b> — and it <b className="text-cyan-300">starts with a geophysical survey, not with
+              AI</b>. An Electrical Resistivity Survey (VES) images the subsurface; machine learning is the final
+              decision-support step.
             </p>
+            {/* the central message: geophysics-first pipeline */}
+            <div className="mt-7 flex flex-wrap items-center gap-x-1 gap-y-2 text-xs font-semibold sm:text-sm">
+              {PIPELINE.map((p, i) => (
+                <span key={p} className="flex items-center gap-1">
+                  <span className={`rounded-lg border px-2.5 py-1.5 ${i === 0 ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-200' : i === PIPELINE.length - 1 ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200' : 'border-white/10 bg-white/5 text-slate-300'}`}>
+                    {p}
+                  </span>
+                  {i < PIPELINE.length - 1 && <span className="text-cyan-400">→</span>}
+                </span>
+              ))}
+            </div>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/analyze" className="btn-primary">
-                Analyze Borewell Potential
+                Start the VES assessment
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M5 12h14m-6-6 6 6-6 6" />
                 </svg>
@@ -202,29 +209,6 @@ export default function Home() {
               </div>
             </Reveal>
           ))}
-        </div>
-      </section>
-
-      {/* ── WORKFLOW ─────────────────────────────────────────────────── */}
-      <section className="border-y border-white/5 bg-slate-950/40">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-          <Reveal>
-            <SectionHeading kicker="Workflow" title="From village name to drilling plan in five steps" />
-          </Reveal>
-          <div className="grid gap-4 md:grid-cols-5">
-            {WORKFLOW.map((w, i) => (
-              <Reveal key={w.step} delay={i * 0.06}>
-                <div className="glass relative h-full p-5">
-                  <div className="font-mono text-2xl font-extrabold text-cyan-400/40">{w.step}</div>
-                  <h3 className="mt-2 text-sm font-semibold text-white">{w.title}</h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{w.body}</p>
-                  {i < WORKFLOW.length - 1 && (
-                    <div className="absolute -right-2.5 top-1/2 hidden -translate-y-1/2 text-cyan-400/50 md:block">›</div>
-                  )}
-                </div>
-              </Reveal>
-            ))}
-          </div>
         </div>
       </section>
 

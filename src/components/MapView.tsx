@@ -75,7 +75,7 @@ function ClickProbe() {
               href={`/analyze?taluka=${talukaId ?? ''}&lat=${pt.lat.toFixed(4)}&lon=${pt.lng.toFixed(4)}`}
               className="font-semibold text-cyan-300 underline"
             >
-              Analyze this exact spot →
+              Run VES analysis here →
             </Link>
           </div>
         </div>

@@ -342,11 +342,17 @@ export function calibrationChart(model: TrainedModel): EChartsOption {
   }
 }
 
-/** Log-log sounding chart: measured points + fitted model curve. */
+/** Log-log sounding chart: measured points + fitted model curve. Scroll or
+ *  pinch to zoom, drag to pan (dataZoom on both log axes). */
 export function soundingChart(readings: VESReading[], fitted: SoundingPoint[]): EChartsOption {
   return {
-    grid: { left: 8, right: 20, top: 40, bottom: 8, containLabel: true },
+    grid: { left: 8, right: 20, top: 40, bottom: 40, containLabel: true },
     legend: { textStyle: { color: '#8fa8c7' }, top: 0 },
+    dataZoom: [
+      { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
+      { type: 'inside', yAxisIndex: 0, filterMode: 'none' },
+      { type: 'slider', xAxisIndex: 0, height: 16, bottom: 8, borderColor: 'transparent', backgroundColor: 'rgba(148,184,226,0.06)', fillerColor: 'rgba(34,211,238,0.15)', handleStyle: { color: '#22d3ee' }, textStyle: { color: '#8fa8c7', fontSize: 9 }, moveHandleStyle: { color: '#22d3ee' } },
+    ],
     tooltip: {
       ...TOOLTIP,
       trigger: 'item',

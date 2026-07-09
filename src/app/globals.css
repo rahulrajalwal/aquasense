@@ -64,6 +64,22 @@ body {
   mask-image: radial-gradient(ellipse 80% 60% at 50% 35%, black 35%, transparent 75%);
 }
 
+/* cross-section layer reveal (plays once as the section builds) */
+@keyframes csReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.cs-layer {
+  animation: csReveal 0.5s ease both;
+  transform-box: fill-box;
+}
+
 /* skeleton shimmer */
 @keyframes shimmer {
   0% {
