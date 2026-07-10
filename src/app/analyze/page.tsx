@@ -234,6 +234,20 @@ function AnalyzeInner() {
       }
     : null
 
+  const officialMeta =
+    taluka && evidence
+      ? {
+          location: `${input.placeName ? input.placeName + ', ' : ''}${taluka.name} taluka, Pune district, Maharashtra`,
+          setting: taluka.terrain,
+          reference: 'CGWB “Ground Water Information, Pune District” (2013) & NAQUIM aquifer mapping (2016–19)',
+          basis: `${
+            input.lat !== null && evidence.evidence.nearby.some((n) => n.km <= 15)
+              ? 'Interpreted depths taken from documented CGWB wells near your coordinates.'
+              : `Median of CGWB / NAQUIM interpreted depths across documented wells in ${taluka.name} taluka.`
+          }${input.knownWaterTableM !== '' ? ' Water level is from your input.' : ''}`,
+        }
+      : undefined
+
   const villageOptions = useMemo(() => {
     if (!taluka) return []
     const names = new Set<string>()
@@ -341,7 +355,7 @@ function AnalyzeInner() {
             <div className="mb-4">
               <VesEducationCard />
             </div>
-            <VesSurvey officialParams={officialParams} value={input.ves} onInterpretation={(i) => upd({ ves: i })} />
+            <VesSurvey officialParams={officialParams} value={input.ves} onInterpretation={(i) => upd({ ves: i })} officialMeta={officialMeta} />
             <div className="mt-5 flex flex-wrap justify-between gap-3">
               <button className="btn-ghost" onClick={() => setStep(0)}>Back</button>
               <button id="btn-step2" className="btn-primary" disabled={!input.ves} onClick={() => setStep(2)}>Continue to interpretation</button>

@@ -359,20 +359,25 @@ export function buildReportDoc(a: RealAssessment): jsPDF {
   // ═══ 4. Apparent resistivity table ═════════════════════════════════
   heading('4. Apparent resistivity data')
   if (vi.readings && vi.readings.length) {
-    para('Field readings — apparent resistivity ρa at each half-spacing AB/2:', 8.5)
+    para(
+      vi.source === 'inverted'
+        ? 'Field readings — apparent resistivity ρa at each half-spacing AB/2:'
+        : 'Representative apparent-resistivity dataset, reconstructed from the official CGWB interpreted layers for the interpretation workflow (not original field readings):',
+      8.5,
+    )
     const rCols: [string, number][] = [['#', 12], ['AB/2 (m)', 40], ['ρa (Ω·m)', 40]]
     tableHeader(rCols)
     vi.readings.forEach((rd, i) => tableRow([`${i + 1}`, `${rd.s}`, rd.rhoA.toFixed(1)], rCols, i % 2 === 0))
   } else {
-    para('Not applicable — CGWB/NAQUIM publish interpreted aquifer depths for this location, not a raw apparent-resistivity sounding curve. Upload a field sounding to record the ρa vs AB/2 table here.', 9, MUTED)
+    para('Not available for this location.', 9, MUTED)
   }
 
   // ═══ 5. VES curve ══════════════════════════════════════════════════
   heading('5. VES sounding curve')
   para(
-    vi.readings && vi.readings.length
+    vi.source === 'inverted'
       ? `Apparent resistivity (ρa) vs half-spacing (AB/2) on log–log axes. The best-fit ${vi.layers.length}-layer model (line) reproduces the measured points at ${vi.rmsLogPct}% RMS misfit (${vi.quality} resolution).`
-      : 'No raw sounding curve is available for this location (official interpreted layers were used; CGWB publishes interpreted depths, not soundings).',
+      : `Representative apparent-resistivity curve reconstructed from the official CGWB interpreted layers (log–log axes). It shows the sounding the published ${vi.layers.length}-layer model would produce — it is not original field data.`,
   )
   drawSoundingCurve()
 

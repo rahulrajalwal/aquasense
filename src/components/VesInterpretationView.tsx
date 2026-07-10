@@ -70,7 +70,7 @@ export default function VesInterpretationView({
   const has = (p: VesPart) => parts.includes(p)
 
   const curve = useMemo(() => {
-    if (interp.source !== 'inverted' || !interp.readings || !interp.fittedLayers) return null
+    if (!interp.readings || !interp.fittedLayers) return null
     const ss = interp.readings.map((r) => r.s)
     return soundingCurve(interp.fittedLayers, Math.min(...ss) * 0.8, Math.max(...ss) * 1.2, 60)
   }, [interp])
@@ -139,23 +139,32 @@ export default function VesInterpretationView({
         </>
       )}
 
-      {/* raw data + sounding curve (field only) */}
-      {has('data') && interp.source === 'inverted' && interp.readings && (
-        <div className={`grid gap-4 ${compact ? '' : 'lg:grid-cols-[300px_1fr]'}`}>
-          <VesDataTable readings={interp.readings} />
-          {curve && (
-            <div className="glass p-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-white">VES sounding curve</h4>
-                <Badge tone="cyan">ρₐ vs AB/2 · log–log</Badge>
-              </div>
-              <Chart option={soundingChart(interp.readings, curve)} style={{ minHeight: 280 }} />
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                Scroll or drag on the plot to zoom and pan. <b className="text-slate-300">Apparent resistivity (ρₐ)</b> is what the
-                ground appears to have at each spacing; small AB/2 senses shallow layers, large AB/2 senses deep ones.
-              </p>
+      {/* sounding curve (+ raw table for uploaded field surveys) */}
+      {has('data') && interp.readings && curve && (
+        <div className={`grid gap-4 ${interp.source === 'inverted' && !compact ? 'lg:grid-cols-[300px_1fr]' : ''}`}>
+          {interp.source === 'inverted' && <VesDataTable readings={interp.readings} />}
+          <div className="glass p-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-white">VES sounding curve</h4>
+              <Badge tone={interp.source === 'inverted' ? 'cyan' : 'slate'}>
+                {interp.source === 'inverted' ? 'ρₐ vs AB/2 · log–log' : 'reconstructed · representative'}
+              </Badge>
             </div>
-          )}
+            <Chart option={soundingChart(interp.readings, curve, interp.source === 'inverted' ? 'Field readings' : 'Representative readings')} style={{ minHeight: 280 }} />
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+              {interp.source === 'inverted' ? (
+                <>
+                  Scroll or drag on the plot to zoom and pan. <b className="text-slate-300">Apparent resistivity (ρₐ)</b> is what the
+                  ground appears to have at each spacing; small AB/2 senses shallow layers, large AB/2 senses deep ones.
+                </>
+              ) : (
+                <>
+                  Reconstructed from the official CGWB interpreted layers for educational visualization —{' '}
+                  <b className="text-slate-300">not original field readings</b>. It shows the sounding the published model would produce.
+                </>
+              )}
+            </p>
+          </div>
         </div>
       )}
 

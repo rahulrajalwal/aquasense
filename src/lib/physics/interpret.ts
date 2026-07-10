@@ -11,7 +11,7 @@
 //  Geophysics.
 // ─────────────────────────────────────────────────────────────────────────
 
-import type { ResLayer } from './ves'
+import { schlumbergerRhoA, type ResLayer } from './ves'
 import { depthToTop } from './invert'
 import type { VESReading } from '../types'
 import {
@@ -268,6 +268,22 @@ export function officialInterpretation(p: {
       describeLayer('fresh-basalt', RHO.fresh, false, p.aq2BottomM, null)),
   ]
 
+  // Reconstruct a REPRESENTATIVE apparent-resistivity dataset by forward-
+  // modelling the published layered model. CGWB publishes interpreted depths,
+  // not raw field readings, so this is only an educational reconstruction of
+  // the sounding the model would produce — it lets official mode follow the
+  // same VES workflow (data → curve → interpretation) as an uploaded survey.
+  const repLayers: ResLayer[] = layers.map((l) => ({ resistivity: l.resistivity, thickness: l.thicknessM ?? 0 }))
+  const maxAB = Math.max(120, Math.round(p.aq2BottomM * 1.8))
+  const lo = Math.log10(1.5)
+  const hi = Math.log10(maxAB)
+  const nS = 13
+  const readings: VESReading[] = []
+  for (let i = 0; i < nS; i++) {
+    const s = Math.round(Math.pow(10, lo + ((hi - lo) * i) / (nS - 1)) * 10) / 10
+    readings.push({ s, rhoA: Math.round(schlumbergerRhoA(repLayers, s) * 10) / 10 })
+  }
+
   return {
     source: 'official',
     layers,
@@ -284,11 +300,15 @@ export function officialInterpretation(p: {
     quality: 'good',
     summary:
       `Official CGWB interpreted layers for this location: a weathered Aquifer-I to ~${p.aq1BottomM} m over a ` +
-      `fractured Aquifer-II near ~${p.aq2BottomM} m (≈${p.aq2ThickM} m productive zone). These interpreted depths ` +
-      `come directly from the CGWB survey; raw sounding curves are not published, so no apparent-resistivity curve is shown.`,
+      `fractured Aquifer-II near ~${p.aq2BottomM} m (≈${p.aq2ThickM} m productive zone). The apparent-resistivity ` +
+      `dataset below is reconstructed from these published layers for the interpretation workflow — it is not original ` +
+      `CGWB field data.`,
     methodology:
-      `No inversion is performed for this location — CGWB/NAQUIM publish interpreted aquifer depths, not raw sounding ` +
-      `curves, so the geological column is built directly from those official interpreted depths using the standard ` +
-      `Deccan-trap resistivity model. Upload a field sounding to run the live 1-D inversion instead.`,
+      `CGWB/NAQUIM publish interpreted aquifer depths for this location, not raw field readings. A representative ` +
+      `apparent-resistivity dataset is reconstructed from the published layered model purely to visualize the VES ` +
+      `interpretation workflow — it is not original field data. The geological column and aquifer parameters come ` +
+      `directly from the official interpreted depths. Upload a field sounding to run a live 1-D inversion of your own data.`,
+    readings,
+    fittedLayers: repLayers,
   }
 }

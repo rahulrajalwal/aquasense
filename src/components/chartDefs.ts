@@ -344,7 +344,7 @@ export function calibrationChart(model: TrainedModel): EChartsOption {
 
 /** Log-log sounding chart: measured points + fitted model curve. Scroll or
  *  pinch to zoom, drag to pan (dataZoom on both log axes). */
-export function soundingChart(readings: VESReading[], fitted: SoundingPoint[]): EChartsOption {
+export function soundingChart(readings: VESReading[], fitted: SoundingPoint[], measuredLabel = 'Field readings'): EChartsOption {
   return {
     grid: { left: 8, right: 20, top: 40, bottom: 40, containLabel: true },
     legend: { textStyle: { color: '#8fa8c7' }, top: 0 },
@@ -387,7 +387,7 @@ export function soundingChart(readings: VESReading[], fitted: SoundingPoint[]): 
         zlevel: 1,
       },
       {
-        name: 'Field readings',
+        name: measuredLabel,
         type: 'scatter',
         symbolSize: 9,
         data: readings.map((r) => [r.s, r.rhoA]),

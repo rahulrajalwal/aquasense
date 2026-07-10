@@ -5,7 +5,7 @@
 // Mode 2: upload a field sounding CSV (AB/2, apparent resistivity) → real
 // 1-D inversion → interpretation. Emits a VesInterpretation upward.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui'
 import { siteById } from '@/lib/data/sites'
 import { schlumbergerRhoA, type ResLayer } from '@/lib/physics/ves'
@@ -46,28 +46,44 @@ function invert(readings: VESReading[]): VesInterpretation {
   return { ...interpretLayers(fit.layers, fit.rmsLog, maxDepth), readings: valid }
 }
 
+export interface OfficialMeta {
+  location: string
+  setting: string
+  reference: string
+  basis: string
+}
+
 export default function VesSurvey({
   officialParams,
   onInterpretation,
   value,
+  officialMeta,
 }: {
   officialParams: OfficialParams
   onInterpretation: (i: VesInterpretation | null) => void
   value: VesInterpretation | null
+  /** Survey provenance shown in the official input panel. */
+  officialMeta?: OfficialMeta
 }) {
   const [mode, setMode] = useState<'official' | 'upload'>(value?.source === 'inverted' ? 'upload' : 'official')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Mode 1 — load official interpreted layers whenever selected / params change
+  // the official interpretation (with a representative reconstructed dataset)
+  const officialInterp = useMemo(
+    () => officialInterpretation(officialParams),
+    [officialParams.aq1BottomM, officialParams.aq2BottomM, officialParams.aq2ThickM, officialParams.preSwlM],
+  )
+
+  // Mode 1 — load the official interpretation whenever selected / params change
   useEffect(() => {
     if (mode === 'official') {
-      onInterpretation(officialInterpretation(officialParams))
+      onInterpretation(officialInterp)
       setError(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, officialParams.aq1BottomM, officialParams.aq2BottomM, officialParams.aq2ThickM, officialParams.preSwlM])
+  }, [mode, officialInterp])
 
   const runInvert = (readings: VESReading[]) => {
     setBusy(true)
@@ -117,12 +133,12 @@ export default function VesSurvey({
             mode === 'official' ? 'border-cyan-400/60 bg-cyan-400/10' : 'border-white/10 bg-white/5 hover:border-white/25'
           }`}
         >
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-white">Use official survey data</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-white">Official CGWB Survey <span className="font-normal text-slate-400">(Preloaded VES Interpretation)</span></span>
             {mode === 'official' && <Badge tone="cyan">active</Badge>}
           </div>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            Load the interpreted aquifer layers CGWB already published for this area. Default — works immediately.
+            A representative VES sounding reconstructed from CGWB&apos;s published interpreted layers for this area. Default — works immediately.
           </p>
         </button>
         <button
@@ -134,23 +150,84 @@ export default function VesSurvey({
             mode === 'upload' ? 'border-cyan-400/60 bg-cyan-400/10' : 'border-white/10 bg-white/5 hover:border-white/25'
           }`}
         >
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-white">Upload a new field survey</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-white">Upload New VES Survey <span className="font-normal text-slate-400">(Field Data)</span></span>
             {mode === 'upload' && <Badge tone="cyan">active</Badge>}
           </div>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            Upload your Schlumberger VES readings (CSV: AB/2, apparent resistivity). The engine inverts them live.
+            Your own Schlumberger VES readings (CSV: AB/2, apparent resistivity). The engine inverts them live.
           </p>
         </button>
       </div>
 
-      {/* mode 1 note */}
+      {/* mode 1 — official survey input panel */}
       {mode === 'official' && (
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm leading-relaxed text-slate-300">
-          Official CGWB interpreted layers loaded for this location. CGWB publishes interpreted aquifer <b>depths</b>,
-          not raw sounding curves, so no apparent-resistivity curve is shown here — the geological column and aquifer
-          parameters below come directly from the official interpretation. For a plot-specific result, switch to
-          <b className="text-cyan-300"> Upload a new field survey</b>.
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-white">Official survey input</span>
+            <Badge tone="cyan">CGWB · NAQUIM</Badge>
+          </div>
+
+          {/* survey metadata */}
+          <dl className="grid grid-cols-1 gap-x-6 text-xs sm:grid-cols-2">
+            {([
+              ['Survey source', 'Central Ground Water Board (CGWB) / NAQUIM'],
+              ['Survey type', 'Electrical Resistivity Survey — Vertical Electrical Sounding (VES)'],
+              ['Location', officialMeta?.location ?? 'Pune district, Maharashtra'],
+              ['Publication', officialMeta?.reference ?? 'CGWB district report & NAQUIM aquifer mapping'],
+              ['Geological setting', officialMeta?.setting ?? 'Deccan-trap basalt'],
+              ['Interpretation source', 'CGWB published interpreted layers'],
+            ] as [string, string][]).map(([k, v]) => (
+              <div key={k} className="flex gap-2 border-b border-white/5 py-1.5">
+                <dt className="w-28 shrink-0 font-semibold text-slate-500">{k}</dt>
+                <dd className="text-slate-300">{v}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {/* representative apparent-resistivity dataset */}
+          <div className="mt-3">
+            <div className="mb-1.5 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Representative apparent-resistivity dataset</span>
+              <Badge tone="slate">input to the interpretation</Badge>
+            </div>
+            {officialInterp.readings && (
+              <div className="overflow-hidden rounded-lg border border-white/10">
+                <div className="max-h-56 overflow-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-panel text-left text-[10px] uppercase tracking-wider">
+                      <tr className="border-b border-white/10">
+                        <th className="px-3 py-1.5 text-slate-500">#</th>
+                        <th className="px-3 py-1.5 text-cyan-300">AB/2 (m)</th>
+                        <th className="px-3 py-1.5 text-amber-300">ρₐ (Ω·m)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono">
+                      {officialInterp.readings.map((rd, i) => (
+                        <tr key={i} className="border-b border-white/5 last:border-0">
+                          <td className="px-3 py-1 text-slate-500">{i + 1}</td>
+                          <td className="px-3 py-1 text-cyan-200">{rd.s}</td>
+                          <td className="px-3 py-1 text-amber-200">{rd.rhoA.toFixed(1)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* honest reconstruction disclaimer */}
+          <p className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] p-2.5 text-[11px] leading-relaxed text-slate-400">
+            <b className="text-amber-300">Representative apparent-resistivity dataset</b> reconstructed from official CGWB interpreted
+            layers. Original field readings are generally not publicly available — this dataset is used only for educational
+            visualization of the interpretation workflow, and is never presented as original CGWB field data.
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+            {officialMeta?.basis ? `${officialMeta.basis} ` : ''}The VES curve, geological layers and aquifer parameters derived
+            from this dataset appear in the next step. For a plot-specific result, switch to{' '}
+            <b className="text-cyan-300">Upload New VES Survey</b>.
+          </p>
         </div>
       )}
 
